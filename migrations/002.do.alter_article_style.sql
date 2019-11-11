@@ -3,7 +3,7 @@ CREATE TYPE article_category AS ENUM (
     'How-to',
     'News',
     'Interview',
-    'Story',
+    'Story'
 );
 
 ALTER TABLE blogful_articles
