@@ -4,6 +4,7 @@ const morgan = require('morgan')
 const cors = require('cors')
 const helmet = require('helmet')
 const { NODE_ENV } = require('./config')
+const ArticlesService = require('./articles-service')
 
 const app = express()
 
@@ -17,6 +18,15 @@ app.use(cors())
 
 app.get('/', (req, res) => {
     res.send('Hello, boilerplate!')
+})
+
+app.get('/articles', (req, res, next) => {
+    const knexInstance = req.app.get('db') //importing the db instance from the server file
+    ArticlesService.getAllArticles(knexInstance)
+        .then(articles => {
+            res.json(articles)
+        })
+        .catch(next) //will send errors to the following errorHandler function
 })
 
 app.use(function errorHandler(error, req, res, next) {
