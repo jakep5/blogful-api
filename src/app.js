@@ -39,6 +39,11 @@ app.get('/articles/:article_id', (req, res, next) => {
     const knexInstance = req.app.get('db')
     ArticlesService.getById(knexInstance, req.params.article_id)
         .then(article => {
+            if(!article) {
+                return res.status(404).json({
+                    error: { message: `Article doesn't exist` }
+                })
+            }
             res.json({
                 id: article.id,
                 title: article.title,
@@ -48,6 +53,10 @@ app.get('/articles/:article_id', (req, res, next) => {
             })
         })
         .catch(next)
+})
+
+app.post('/articles', (req, res, next) => {
+    res.status(201).send('stuff')
 })
 
 app.use(function errorHandler(error, req, res, next) {
