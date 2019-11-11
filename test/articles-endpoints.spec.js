@@ -21,6 +21,13 @@ describe.only('Articles Endpoints', function() {
     afterEach('cleanup', () => db('blogful_articles').truncate())//clears the table after each test as well
 
     describe(`GET /articles`, () => {
+        context(`Given no articles`, () => {
+            it(`responds with 200 and an empty list`, () => { //no beforeEach statement to insert articles, so table will automatically be empty
+                return supertest(app)
+                    .get('/articlces')
+                    .expect(200, [])
+            })
+        })
         context('Given there are articles in the database', () => {
             const testArticles = makeArticlesArray();
 
@@ -55,6 +62,15 @@ describe.only('Articles Endpoints', function() {
                 return supertest(app)
                     .get(`/articles/${articleId}`)
                     .expect(200, expectedArticle)
+            })
+        })
+
+        context(`Given no articles`, () => {
+            it(`responds with 404`, () => {
+                const articleId = 123456
+                return supertest(app)
+                    .get(`/articles/${articleId}`)
+                    .expect(404, { error: {message: `Article doesn't exist`}})
             })
         })
     })
