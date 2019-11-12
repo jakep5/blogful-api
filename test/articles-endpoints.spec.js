@@ -2,8 +2,9 @@ const { expect } = require('chai')
 const knex = require('knex')
 const app = require('../src/app')
 const { makeArticlesArray } = require('./articles.fixtures')
+const { makeMaliciousArticle } = require('./articles.fixtures')
 
-describe.only('Articles Endpoints', function() {
+describe('Articles Endpoints', function() {
     let db
 
     before('make knex instance', () => {
@@ -43,6 +44,26 @@ describe.only('Articles Endpoints', function() {
                     .expect(200, testArticles)
             })
         })
+
+        context(`Given an XSS attack article`, () => {
+            const { maliciousArticle, expectedArticle } = makeMaliciousArticle()
+
+            beforeEach('insert malicious article', () => {
+                return db
+                    .into('blogful_articles')
+                    .insert([ maliciousArticle ])
+            })
+
+            it('removes XSS attack content', () => {
+                return supertest(app)
+                    .get(`/articles`)
+                    .expect(200)
+                    .expect(res => {
+                        expect(res.body[0].title).to.eql(expectedArticle.title)
+                        expect(res.body[0].content).to.eql(expectedArticle.content)
+                    })
+            })
+        })
     })
 
 
@@ -73,9 +94,34 @@ describe.only('Articles Endpoints', function() {
                     .expect(404, { error: { message: `Article doesn't exist` }})
             })
         })
+
+        context(`Given an XSS article attack`, () => {
+            const maliciousArticle = {
+                id: 911,
+                title: 'Naughty naughty very naughty <script>alert("xss");</script>',
+                style: 'How-to',
+                content: `Bad image <img src="https://url.to.file.which/does-not.exist" onerror="alert(document.cookie);">. But not <strong>all</strong> bad.`
+            }
+
+            beforeEach('insert malicious article', () => {
+                return db
+                    .into('blogful_articles')
+                    .insert([maliciousArticle])
+            })
+
+            it('removes XSS attack content', () => {
+                return supertest(app)
+                    .get(`/articles/${maliciousArticle.id}`)
+                    .expect(200)
+                    .expect(res => {
+                        expect(res.body.title).to.eql('Naughty naughty very naughty &lt;script&gt;alert(\"xss\");&lt;/script&gt;')
+                        expect(res.body.content).to.eql(`Bad image <img src="https://url.to.file.which/does-not.exist">. But not <strong>all</strong> bad.`)
+                    })
+            })
+        })
     })
 
-    describe.only(`POST /articles`, () => {
+    describe(`POST /articles`, () => {
         it(`creates an article, responding with 201 and the new article`, function() {
             this.retries(3)
             const newArticle = {
@@ -104,15 +150,37 @@ describe.only('Articles Endpoints', function() {
                 )
         })
 
-        it(`responds with 400 and an error message when the 'title' is missing`, () => {
+        const requiredFields = ['title', 'style', 'content']
+
+        requiredFields.forEach(field => {
+            const newArticle = {
+                title: 'Test new article',
+                style: 'Listicle',
+                content: 'Test new article content'
+            }
+
+            it(`responds with 400 and an error message when the '${field}' is missing`, () => {
+                delete newArticle[field]
+
+                return supertest(app)
+                    .post('/articles')
+                    .send(newArticle)
+                    .expect(400, {
+                        error: {message: `Missing '${field}' in request body` }
+                    })
+            })
+        })
+
+        it('removes XSS attack content from response', () => {
+            const { maliciousArticle, expectedArticle } = makeMaliciousArticle()
+
             return supertest(app)
-                .post('/articles')
-                .send({
-                    style: 'Listicle',
-                    content: 'Test new article content...'
-                })
-                .expect(400, {
-                    error: { message: `Missing 'title' in request body` }
+                .post(`/articles`)
+                .send(maliciousArticle)
+                .expect(201)
+                .expect( res => {
+                    expect(res.body.title).to.eql(expectedArticle.title)
+                    expect(res.body.content).to.eql(expectedArticle.content)
                 })
         })
     })
